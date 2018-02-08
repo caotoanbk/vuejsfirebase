@@ -283,6 +283,9 @@
     border-top: 1px solid #e9ecef;
     border-bottom: 1px solid #e9ecef;
   }
+  .example-full .edit-image{
+    max-height: 380px;
+  }
   .example-full .edit-image img {
     max-width: 100%;
   }
@@ -406,26 +409,44 @@ export default {
   },
   methods: {
     uploadFileToFirebase(file, data){
-      this.$refs.upload.update(file, data)
+      // this.$refs.upload.update(file, data)
+      file.active = true
+      console.log(filesRef)
       let fileUrl
       let key
-      filesRef.push({name: file.name, description: file.description || '', size: file.size, type: file.type})
-      .then((data) => {
-        key = data.key
-        return key
-      })
-      .then(key => {
-        const filename = file.name
-        const ext = filename.slice(filename.lastIndexOf('.'))
-        return app.storage().ref('files/'+file.name).put(file.file)
-      })
-      .then((fileData) => {
-        fileUrl = fileData.metadata.downloadURLs[0]
-        return filesRef.child(key).update({fileUrl: fileUrl})
-      })
-      .catch((error) => {
-        console.log(error)
-      })
+      if(file.active){
+        filesRef.push({name: file.name, description: file.description || '', size: file.size, type: file.type})
+        .then((data) => {
+          key = data.key
+          return key
+        })
+        .catch((error) => {
+          // this.$refs.upload.update(file, {error: 'error', active: false})
+          file.active = false
+          file.error = 'error'
+          console.log('error')
+        })
+        .then(key => {
+          const filename = file.name
+          const ext = filename.slice(filename.lastIndexOf('.'))
+          return app.storage().ref('files/'+file.name).put(file.file)
+        })
+        .then((fileData) => {
+          fileUrl = fileData.metadata.downloadURLs[0]
+          return filesRef.child(key).update({fileUrl: fileUrl})
+        })
+        .then((data) => {
+          // this.$refs.upload.update(file, {success: true, active: false})
+          file.success = true
+          file.active = false
+        })
+        .catch((error) => {
+          // this.$refs.upload.update(file, {error: 'error', active: false})
+          file.active = false
+          file.error = 'error'
+          console.log('error')
+        })
+      }
     },
     inputFilter(newFile, oldFile, prevent) {
       if (newFile && !oldFile) {
@@ -527,6 +548,7 @@ export default {
       }
       let data = {
         name: this.editFile.name,
+        description: this.editFile.description
       }
       if (this.editFile.cropper) {
         let binStr = atob(this.editFile.cropper.getCroppedCanvas().toDataURL(this.editFile.type).split(',')[1])
@@ -540,24 +562,6 @@ export default {
       this.$refs.upload.update(this.editFile.id, data)
       this.editFile.error = ''
       this.editFile.show = false
-    },
-    // add folader
-    onAddFolader() {
-      if (!this.$refs.upload.features.directory) {
-        this.alert('Your browser does not support')
-        return
-      }
-      let input = this.$refs.upload.$el.querySelector('input')
-      input.directory = true
-      input.webkitdirectory = true
-      this.directory = true
-      input.onclick = null
-      input.click()
-      input.onclick = (e) => {
-        this.directory = false
-        input.directory = false
-        input.webkitdirectory = false
-      }
     },
     onAddData() {
       this.addData.show = false
