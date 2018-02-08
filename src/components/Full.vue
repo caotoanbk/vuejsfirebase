@@ -34,7 +34,7 @@
             </td>
           </tr>
           <tr v-for="(file, index) in files" :key="file.id">
-            <td>{{index}}</td>
+            <td>{{index+1}}</td>
             <td>
               <img v-if="file.thumb" :src="file.thumb" width="40" height="auto" />
               <span v-else>No Image</span>
@@ -50,7 +50,7 @@
             </td>
             <td><input type="text" class="form-control" v-model="file.description"></td>
             <td>{{file.type}}</td>
-            <td>{{file.size}}</td>
+            <td>{{file.size | formatSize}}</td>
             <td v-if="file.error">{{file.error}}</td>
             <td v-else-if="file.success">success</td>
             <td v-else-if="file.active">active</td>
@@ -78,13 +78,7 @@
       </table>
     </div>
     <div class="example-foorer">
-      <div class="footer-status float-right">
-        Drop: {{$refs.upload ? $refs.upload.drop : false}},
-        Active: {{$refs.upload ? $refs.upload.active : false}},
-        Uploaded: {{$refs.upload ? $refs.upload.uploaded : true}},
-        Drop active: {{$refs.upload ? $refs.upload.dropActive : false}}
-      </div>
-      <div class="btn">
+      <div class="btn-group">
         <file-upload
           class="btn btn-primary"
           :extensions="extensions"
@@ -211,56 +205,59 @@
 
 
 
-  <!-- <div :class="{'modal-backdrop': true, 'fade': true, show: editFile.show}"></div> -->
-  <div :class="{modal: true, fade: true, show: editFile.show}" id="modal-edit-file" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Edit file</h5>
-          <button type="button" class="close"  @click.prevent="editFile.show = false">
-            <span>&times;</span>
-          </button>
-        </div>
-        <form @submit.prevent="onEditorFile">
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="name">Name:</label>
-              <input type="text" class="form-control" required id="name"  placeholder="Please enter a file name" v-model="editFile.name">
-            </div>
-            <div class="form-group" v-if="editFile.show && editFile.blob && editFile.type && editFile.type.substr(0, 6) === 'image/'">
-              <label>Image: </label>
-              <div class="edit-image">
-                <img :src="editFile.blob" ref="editImage" />
-              </div>
+  <div :class="{'modal-backdrop': true, 'fade': true, show: editFile.show}"></div>
+   <div :class="{modal: true, fade: true, show: editFile.show}" id="modal-edit-file" tabindex="-1" role="dialog">
+     <div class="modal-dialog modal-lg" role="document">
+       <div class="modal-content">
+         <div class="modal-header">
+           <h5 class="modal-title">Edit file</h5>
+           <button type="button" class="close"  @click.prevent="editFile.show = false">
+             <span>&times;</span>
+           </button>
+         </div>
+         <form @submit.prevent="onEditorFile">
+           <div class="modal-body">
+             <div class="form-group" style="text-align: left;">
+               <label for="name" style="margin-bottom: .5rem;">Name:</label>
+               <input type="text" class="form-control" required id="name"  placeholder="File font-awesome" v-model="editFile.name">
+             </div>
+             <div class="form-group" style="text-align: left;">
+               <label for="description" style="margin-bottom: 0.5rem;">Description:</label>
+               <input type="text" class="form-control" id="description"  placeholder="File description" v-model="editFile.description">
+             </div>
+             <div class="form-group" style="text-align: left;" v-if="editFile.show && editFile.blob && editFile.type && editFile.type.substr(0, 6) === 'image/'">
+               <label style="margin-bottom: .5rem;">Image: </label>
+               <div class="edit-image">
+                 <img :src="editFile.blob" ref="editImage" />
+               </div>
 
-              <div class="edit-image-tool">
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-primary" @click="editFile.cropper.rotate(-90)" title="cropper.rotate(-90)"><i class="fa fa-undo" aria-hidden="true"></i></button>
-                  <button type="button" class="btn btn-primary" @click="editFile.cropper.rotate(90)"  title="cropper.rotate(90)"><i class="fa fa-repeat" aria-hidden="true"></i></button>
-                </div>
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-primary" @click="editFile.cropper.crop()" title="cropper.crop()"><i class="fa fa-check" aria-hidden="true"></i></button>
-                  <button type="button" class="btn btn-primary" @click="editFile.cropper.clear()" title="cropper.clear()"><i class="fa fa-remove" aria-hidden="true"></i></button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click.prevent="editFile.show = false">Close</button>
-            <button type="submit" class="btn btn-primary">Save</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="pt-5">
-    Source code: <a href="https://github.com/lian-yue/vue-upload-component/blob/master/docs/views/examples/Full.vue">/docs/views/examples/Full.vue</a>
-  </div>
+               <div class="edit-image-tool">
+                 <div class="btn-group" role="group">
+                   <button type="button" class="btn btn-primary" @click="editFile.cropper.rotate(-90)" title="cropper.rotate(-90)"><i class="fa fa-undo" aria-hidden="true"></i></button>
+                   <button type="button" class="btn btn-primary" @click="editFile.cropper.rotate(90)"  title="cropper.rotate(90)"><i class="fa fa-repeat" aria-hidden="true"></i></button>
+                 </div>
+                 <div class="btn-group" role="group">
+                   <button type="button" class="btn btn-primary" @click="editFile.cropper.crop()" title="cropper.crop()"><i class="fa fa-check" aria-hidden="true"></i></button>
+                   <button type="button" class="btn btn-primary" @click="editFile.cropper.clear()" title="cropper.clear()"><i class="fa fa-remove" aria-hidden="true"></i></button>
+                 </div>
+               </div>
+             </div>
+           </div>
+           <div class="modal-footer">
+             <button type="button" class="btn btn-secondary" @click.prevent="editFile.show = false">Close</button>
+             <button type="submit" class="btn btn-primary">Save</button>
+           </div>
+         </form>
+       </div>
+     </div>
+   </div>
 
 </div>
 </template>
-<style>
+<style scoped>
+  table th, table td{
+    text-align: left;
+  }
   .example-full .btn-group .dropdown-menu {
     display: block;
     visibility: hidden;
@@ -282,7 +279,7 @@
     margin-top: 0.25rem;
   }
   .example-full .example-foorer {
-    padding: .5rem 0;
+    padding: .7rem 0;
     border-top: 1px solid #e9ecef;
     border-bottom: 1px solid #e9ecef;
   }
@@ -322,23 +319,16 @@
     color: #fff;
     padding: 0;
   }
+  label{
+    margin-bottom: 0;
+  }
 </style>
 
 <script>
 import Cropper from 'cropperjs'
 import ImageCompressor from '@xkeshi/image-compressor'
 import FileUpload from 'vue-upload-component'
-import Firebase from 'firebase'
-let config = {
-    apiKey: "AIzaSyCk2d9dzE-nALc2RHn4_dmIZmelmZEPi2U",
-    authDomain: "vuejs-firebase-02-ded5b.firebaseapp.com",
-    databaseURL: "https://vuejs-firebase-02-ded5b.firebaseio.com",
-    projectId: "vuejs-firebase-02-ded5b",
-    storageBucket: "vuejs-firebase-02-ded5b.appspot.com",
-    messagingSenderId: "131882522328"
-  }
-let app = Firebase.initializeApp(config)
-let filesRef = app.database().ref('files')
+import { app, filesRef } from '../firebaseConfig'
 export default {
   firebase: {
     filesDb: filesRef
