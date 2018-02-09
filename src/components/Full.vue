@@ -51,8 +51,8 @@
             <td><input type="text" class="form-control" v-model="file.description"></td>
             <td>{{file.type}}</td>
             <td>{{file.size | formatSize}}</td>
-            <td v-if="file.error">{{file.error}}</td>
-            <td v-else-if="file.success">success</td>
+            <td v-if="file.error" class="text-danger"><strong>{{file.error}}</strong></td>
+            <td v-else-if="file.success" class="text-success"><strong>success</strong></td>
             <td v-else-if="file.active">active</td>
             <td v-else></td>
             <td>
@@ -62,7 +62,7 @@
                 </button>
                 <div class="dropdown-menu">
                   <a :class="{'dropdown-item': true, disabled: file.active || file.success || file.error === 'compressing'}" href="#" @click.prevent="file.active || file.success || file.error === 'compressing' ? false :  onEditFileShow(file)">Edit</a>
-                  <a :class="{'dropdown-item': true, disabled: !file.active}" href="#" @click.prevent="file.active ? $refs.upload.update(file, {error: 'cancel'}) : false">Cancel</a>
+                  <a :class="{'dropdown-item': true, disabled: !file.active}" href="#" @click.prevent="file.active ? cancelUploadFileToFirebase(file) : false">Cancel</a>
 
                   <a class="dropdown-item" href="#" v-if="file.active" @click.prevent="$refs.upload.update(file, {active: false})">Abort</a>
                   <a class="dropdown-item" href="#" v-else-if="file.error && file.error !== 'compressing' && $refs.upload.features.html5" @click.prevent="$refs.upload.update(file, {active: true, error: '', progress: '0.00'})">Retry upload</a>
@@ -87,8 +87,6 @@
           :directory="directory"
           :size="size || 0"
           :thread="thread < 1 ? 1 : (thread > 5 ? 5 : thread)"
-          :headers="headers"
-          :data="data"
           :drop="drop"
           :drop-directory="dropDirectory"
           :add-index="addIndex"
@@ -125,20 +123,6 @@
       <label for="extensions">Extensions:</label>
       <input type="text" id="extensions" class="form-control" v-model="extensions">
       <small class="form-text text-muted">Allow upload file extension</small>
-    </div>
-    <div class="form-group">
-      <label>PUT Upload:</label>
-      <div class="form-check">
-        <label class="form-check-label">
-          <input class="form-check-input" type="radio" name="put-action" id="put-action" value="" v-model="putAction"> Off
-        </label>
-      </div>
-      <div class="form-check">
-        <label class="form-check-label">
-          <input class="form-check-input" type="radio" name="put-action" id="put-action" value="/upload/put" v-model="putAction"> On
-        </label>
-      </div>
-      <small class="form-text text-muted">After the shutdown, use the POST method to upload</small>
     </div>
     <div class="form-group">
       <label for="thread">Thread:</label>
@@ -332,6 +316,8 @@ import Cropper from 'cropperjs'
 import ImageCompressor from '@xkeshi/image-compressor'
 import FileUpload from 'vue-upload-component'
 import { app, filesRef } from '../firebaseConfig'
+import firebase from 'firebase'
+
 export default {
   firebase: {
     filesDb: filesRef
@@ -355,14 +341,6 @@ export default {
       addIndex: false,
       thread: 3,
       name: 'file',
-      postAction: '/upload/post',
-      putAction: '/upload/put',
-      headers: {
-        'X-Csrf-Token': 'xxxx',
-      },
-      data: {
-        '_csrf_token': 'xxxxxx',
-      },
       autoCompress: 1024 * 1024,
       uploadAuto: false,
       isOption: false,
@@ -410,43 +388,96 @@ export default {
   methods: {
     uploadFileToFirebase(file, data){
       // this.$refs.upload.update(file, data)
-      file.active = true
-      console.log(filesRef)
       let fileUrl
       let key
-      if(file.active){
-        filesRef.push({name: file.name, description: file.description || '', size: file.size, type: file.type})
-        .then((data) => {
-          key = data.key
-          return key
-        })
-        .catch((error) => {
-          // this.$refs.upload.update(file, {error: 'error', active: false})
-          file.active = false
-          file.error = 'error'
-          console.log('error')
-        })
-        .then(key => {
-          const filename = file.name
-          const ext = filename.slice(filename.lastIndexOf('.'))
-          return app.storage().ref('files/'+file.name).put(file.file)
-        })
-        .then((fileData) => {
-          fileUrl = fileData.metadata.downloadURLs[0]
-          return filesRef.child(key).update({fileUrl: fileUrl})
-        })
-        .then((data) => {
-          // this.$refs.upload.update(file, {success: true, active: false})
-          file.success = true
-          file.active = false
-        })
-        .catch((error) => {
-          // this.$refs.upload.update(file, {error: 'error', active: false})
-          file.active = false
-          file.error = 'error'
-          console.log('error')
-        })
-      }
+      const filename = file.name
+      const ext = filename.slice(filename.lastIndexOf('.'))
+
+      filesRef.push({name: file.name, description: file.description || '', size: file.size, type: file.type, extension: ext})
+      .then((data) => {
+        file.active = true
+        key = data.key
+        return key
+      })
+      .then(key => {
+        let uploadTask = app.storage().ref('files/'+key+ext).put(file.file)
+        // if(file.error == 'cancel') {
+        //   console.log('cancel')
+        //   uploadTask.cancel()
+        //   filesRef.child(key).remove()
+        // }else{
+        //   return uploadTask
+        // }
+        // Listen for state changes, errors, and completion of the upload.
+        uploadTask.on(firebase.storage.TaskEvent.STATE_CHANGED, // or 'state_changed'
+          function(snapshot) {
+              // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
+              var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              console.log('Upload is ' + progress + '% done');
+              // uploadTask.cancel()
+              switch (snapshot.state) {
+                case firebase.storage.TaskState.PAUSED: // or 'paused'
+                  break;
+                case firebase.storage.TaskState.RUNNING: // or 'running'
+                  console.log('Upload is running');
+                  if(file.error == 'cancel'){
+                    uploadTask.cancel()
+                  }
+                  break;
+              }
+            },
+            function(error) {
+
+              // A full list of error codes is available at
+              // https://firebase.google.com/docs/storage/web/handle-errors
+              switch (error.code) {
+                case 'storage/unauthorized':
+                  // User doesn't have permission to access the object
+                  break;
+
+                case 'storage/canceled':
+                  // User canceled the upload
+                  filesRef.child(key).remove()
+                  console.log('Upload is canceled')
+                  break;
+
+                case 'storage/unknown':
+                  // Unknown error occurred, inspect error.serverResponse
+                  break;
+              }
+              file.active = false
+              file.error = 'error'
+              file.success = false
+          },
+          function() {
+            // Upload completed successfully, now we can get the download URL
+            let fileUrl = uploadTask.snapshot.downloadURL;
+            // fileUrl = fileData.metadata.downloadURLs[0]
+            filesRef.child(key).update({fileUrl: fileUrl})
+            .then((data) => {
+              // this.$refs.upload.update(file, {success: true, active: false})
+              file.success = true
+              file.active = false
+            })
+            .catch((error) => {
+              // this.$refs.upload.update(file, {error: 'error', active: false})
+              file.active = false
+              file.error = 'error'
+              file.success = false
+              console.log('error')
+            })
+          }
+        );
+
+      })
+
+    },
+    cancelUploadFileToFirebase(file){
+      // $refs.upload.update(file, {error: 'cancel'}
+      file.error = 'cancel'
+      // var uploadTask = app.storage().ref('files/'+file.name).put(file.file)
+      // uploadTask.cancel();
+      // file.active = false
     },
     inputFilter(newFile, oldFile, prevent) {
       if (newFile && !oldFile) {

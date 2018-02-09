@@ -12,6 +12,7 @@ global.jQuery = jQuery
 let Bootstrap = require('bootstrap')
 import 'bootstrap/dist/css/bootstrap.css'
 import 'cropperjs/dist/cropper.css'
+import 'toastr/build/toastr.css'
 
 Vue.config.productionTip = false
 Vue.use(VueFire)

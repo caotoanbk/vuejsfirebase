@@ -14,7 +14,7 @@
             <th>Description</th>
             <th>Type</th>
             <th>Size</th>
-            <th>Delete</th>
+            <th style="text-align: center;">Delete</th>
           </tr>
         </thead>
         <tbody>
@@ -34,23 +34,29 @@
 
 <script>
 import { app, filesRef } from '../firebaseConfig'
-filesRef.on('value', function(snapshot) {
-
-})
+import toastr from 'toastr'
 export default {
   data(){
     return {
       descFilter: '',
       typeFilter: '',
-      files: []
+      files: [],
+      removeKeys: [],
     }
   },
   created(){
     this.$http.get('https://vuejs-firebase-02-ded5b.firebaseio.com/files.json')
     .then(function(data){
-      this.files = $.map(data.body, function(value, index){
+      let contents = $.map(data.body, function(value, index){
         return [value]
       })
+      let indexs = $.map(data.body, function(value, index){
+        return [index]
+      })
+      for (var i = 0; i < contents.length; i++) {
+        contents[i].key = indexs[i]
+      }
+      this.files = contents
     })
   },
   computed: {
@@ -58,8 +64,19 @@ export default {
       var reDesc = new RegExp(this.descFilter, 'i')
       var reType = new RegExp(this.typeFilter, 'i')
       return this.files.filter((file) => {
-        return file.description.match(reDesc) && file.type.match(reType)
+        return file.description.match(reDesc) && file.type.match(reType) && ($.inArray(file.key, this.removeKeys) == -1)
       });
+    }
+  },
+  methods: {
+    removeFile(file){
+      app.storage().ref().child('files/'+file.key+file.extension).delete().then(() => {
+        filesRef.child(file.key).remove()
+        this.removeKeys.push(file.key)
+        toastr.success('File removed')
+      }).catch((error) => {
+        alert('Error when delete file on firebase storage')
+      })
     }
   }
 
