@@ -1,16 +1,32 @@
 <template>
 <div class="example-full">
-  <button type="button" class="btn btn-danger float-right btn-is-option" @click.prevent="isOption = !isOption">
-    <i class="fa fa-cog" aria-hidden="true"></i>
-    Options
-  </button>
-  <h2 id="example-title" class="example-title" style="text-align: left; padding-left: 1rem;">Upload files</h2>
+  <h2 id="example-title" class="example-title" style="text-align: left; padding-left: 1rem;">Upload files
+    <div class="btn-group" style="margin-left: 0.5rem;">
+      <file-upload
+        class="btn btn-primary"
+        :extensions="extensions"
+        :accept="accept"
+        :multiple="multiple"
+        :directory="directory"
+        :size="size || 0"
+        :thread="thread < 1 ? 1 : (thread > 5 ? 5 : thread)"
+        :drop="drop"
+        :drop-directory="dropDirectory"
+        :add-index="addIndex"
+        v-model="files"
+        @input-filter="inputFilter"
+        @input-file="inputFile"
+        ref="upload">
+        <i class="fa fa-plus"></i>
+        Add files
+      </file-upload>
+    </div></h2>
   <br>
   <div v-show="$refs.upload && $refs.upload.dropActive" class="drop-active">
 		<h3>Drop files to upload</h3>
   </div>
-  <div class="upload" v-show="!isOption">
-    <div class="table-responsive" style="min-height: 350px;">
+  <div class="upload" v-show="true">
+    <div class="table-responsive" style="min-height: 500px;">
       <table class="table table-hover">
         <thead>
           <tr>
@@ -26,10 +42,10 @@
         </thead>
         <tbody>
           <tr v-if="!files.length">
-            <td colspan="8">
+            <td colspan="8" style="height: 440px;" class="p-5">
               <div class="text-center p-5">
                 <h4>Drop files anywhere to upload<br/>or</h4>
-                <label :for="name" class="btn btn-lg btn-primary">Select Files</label>
+                <label :for="name" class="btn btn-lg btn-primary"><i class="fa fa-plus"></i> Add Files</label>
               </div>
             </td>
           </tr>
@@ -48,10 +64,11 @@
                 <div :class="{'progress-bar': true, 'progress-bar-striped': true, 'bg-danger': file.error, 'progress-bar-animated': file.active}" role="progressbar" :style="{width: file.progress + '%'}">{{file.progress}}%</div>
               </div>
             </td>
-            <td><input type="text" class="form-control" v-model="file.description"></td>
+            <td v-if="!file.success" ><input type="text" class="form-control" v-model="file.description"></td>
+            <td v-else>{{file.description}}</td>
             <td>{{file.type}}</td>
             <td>{{file.size | formatSize}}</td>
-            <td v-if="file.error" class="text-danger"><strong>{{file.error}}</strong></td>
+            <td v-if="file.error" class="text-danger"><strong v-if="file.error == 'cancel'">canceled</strong></td>
             <td v-else-if="file.success" class="text-success"><strong>success</strong></td>
             <td v-else-if="file.active">active</td>
             <td v-else></td>
@@ -62,11 +79,9 @@
                 </button>
                 <div class="dropdown-menu">
                   <a :class="{'dropdown-item': true, disabled: file.active || file.success || file.error === 'compressing'}" href="#" @click.prevent="file.active || file.success || file.error === 'compressing' ? false :  onEditFileShow(file)">Edit</a>
-                  <a :class="{'dropdown-item': true, disabled: !file.active}" href="#" @click.prevent="file.active ? cancelUploadFileToFirebase(file) : false">Cancel</a>
-
-                  <a class="dropdown-item" href="#" v-if="file.active" @click.prevent="$refs.upload.update(file, {active: false})">Abort</a>
-                  <a class="dropdown-item" href="#" v-else-if="file.error && file.error !== 'compressing' && $refs.upload.features.html5" @click.prevent="$refs.upload.update(file, {active: true, error: '', progress: '0.00'})">Retry upload</a>
-                  <a :class="{'dropdown-item': true, disabled: file.success || file.error === 'compressing'}" href="#" v-else @click.prevent="file.success || file.error === 'compressing' ? false : uploadFileToFirebase(file, {active: true})">Upload</a>
+                  <a :class="{'dropdown-item': true, disabled: !file.active}" href="#" @click.prevent="file.active ? file.error = 'cancel' : false">Cancel</a>
+                  <a :class="{'dropdown-item': true, disabled: file.active}" v-if="file.error && file.error !== 'compressing' && $refs.upload.features.html5" @click.prevent="uploadFileToFirebase(file, {active: true, reupload: true})">Reupload</a>
+                  <a :class="{'dropdown-item': true, disabled: file.active || file.success || file.error === 'compressing'}" href="#" v-else @click.prevent="file.success || file.error === 'compressing' ? false : uploadFileToFirebase(file, {active: true, reupload: false})">Upload</a>
 
                   <div class="dropdown-divider"></div>
                   <a class="dropdown-item" href="#" @click.prevent="$refs.upload.remove(file)">Remove</a>
@@ -77,116 +92,8 @@
         </tbody>
       </table>
     </div>
-    <div class="example-foorer">
-      <div class="btn-group">
-        <file-upload
-          class="btn btn-primary"
-          :extensions="extensions"
-          :accept="accept"
-          :multiple="multiple"
-          :directory="directory"
-          :size="size || 0"
-          :thread="thread < 1 ? 1 : (thread > 5 ? 5 : thread)"
-          :drop="drop"
-          :drop-directory="dropDirectory"
-          :add-index="addIndex"
-          v-model="files"
-          @input-filter="inputFilter"
-          @input-file="inputFile"
-          ref="upload">
-          <i class="fa fa-plus"></i>
-          Select files
-        </file-upload>
-      </div>
-      <button type="button" class="btn btn-success" v-if="!$refs.upload || !$refs.upload.active" @click.prevent="$refs.upload.active = true">
-        <i class="fa fa-arrow-up" aria-hidden="true"></i>
-        Start Upload
-      </button>
-      <button type="button" class="btn btn-danger"  v-else @click.prevent="$refs.upload.active = false">
-        <i class="fa fa-stop" aria-hidden="true"></i>
-        Stop Upload
-      </button>
-    </div>
+
   </div>
-
-
-
-
-
-  <div class="option" v-show="isOption">
-    <div class="form-group">
-      <label for="accept">Accept:</label>
-      <input type="text" id="accept" class="form-control" v-model="accept">
-      <small class="form-text text-muted">Allow upload mime type</small>
-    </div>
-    <div class="form-group">
-      <label for="extensions">Extensions:</label>
-      <input type="text" id="extensions" class="form-control" v-model="extensions">
-      <small class="form-text text-muted">Allow upload file extension</small>
-    </div>
-    <div class="form-group">
-      <label for="thread">Thread:</label>
-      <input type="number" max="5" min="1" id="thread" class="form-control" v-model.number="thread">
-      <small class="form-text text-muted">Also upload the number of files at the same time (number of threads)</small>
-    </div>
-    <div class="form-group">
-      <label for="size">Max size:</label>
-      <input type="number" min="0" id="size" class="form-control" v-model.number="size">
-    </div>
-    <div class="form-group">
-      <label for="minSize">Min size:</label>
-      <input type="number" min="0" id="minSize" class="form-control" v-model.number="minSize">
-    </div>
-    <div class="form-group">
-      <label for="autoCompress">Automatically compress:</label>
-      <input type="number" min="0" id="autoCompress" class="form-control" v-model.number="autoCompress">
-      <small class="form-text text-muted" v-if="autoCompress > 0">More than {{autoCompress}} files are automatically compressed</small>
-      <small class="form-text text-muted" v-else>Set up automatic compression</small>
-    </div>
-
-    <div class="form-group">
-      <div class="form-check">
-        <label class="form-check-label">
-          <input type="checkbox" id="add-index" class="form-check-input" v-model="addIndex"> Start position to add
-        </label>
-      </div>
-      <small class="form-text text-muted">Add a file list to start the location to add</small>
-    </div>
-
-    <div class="form-group">
-      <div class="form-check">
-        <label class="form-check-label">
-          <input type="checkbox" id="drop" class="form-check-input" v-model="drop"> Drop
-        </label>
-      </div>
-      <small class="form-text text-muted">Drag and drop upload</small>
-    </div>
-    <div class="form-group">
-      <div class="form-check">
-        <label class="form-check-label">
-          <input type="checkbox" id="drop-directory" class="form-check-input" v-model="dropDirectory"> Drop directory
-        </label>
-      </div>
-      <small class="form-text text-muted">Not checked, filter the dragged folder</small>
-    </div>
-    <div class="form-group">
-      <div class="form-check">
-        <label class="form-check-label">
-          <input type="checkbox" id="upload-auto" class="form-check-input" v-model="uploadAuto"> Auto start
-        </label>
-      </div>
-      <small class="form-text text-muted">Automatically activate upload</small>
-    </div>
-    <div class="form-group">
-      <button type="button" class="btn btn-primary btn-lg btn-block" @click.prevent="isOption = !isOption">Confirm</button>
-    </div>
-  </div>
-
-
-
-
-
-
 
 
   <div :class="{'modal-backdrop': true, 'fade': true, show: editFile.show}"></div>
@@ -247,6 +154,10 @@
     visibility: hidden;
     transition: all .2s
   }
+  div.upload{
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgb(222, 226, 230);
+  }
   .example-full .btn-group:hover > .dropdown-menu {
     visibility: visible;
   }
@@ -255,6 +166,9 @@
   }
   .example-full .btn-group .dropdown-toggle {
     margin-right: .6rem
+  }
+  a.dropdown-item{
+    cursor: pointer;
   }
   .example-full .filename {
     margin-bottom: .3rem
@@ -395,12 +309,17 @@ export default {
 
       filesRef.push({name: file.name, description: file.description || '', size: file.size, type: file.type, extension: ext})
       .then((data) => {
-        file.active = true
         key = data.key
         return key
       })
       .then(key => {
+
         let uploadTask = app.storage().ref('files/'+key+ext).put(file.file)
+        file.active = true
+        if(data.reupload){
+          file.error = ''
+          file.progress = '0.00'
+        }
         // if(file.error == 'cancel') {
         //   console.log('cancel')
         //   uploadTask.cancel()
@@ -414,6 +333,7 @@ export default {
               // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
               var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
               console.log('Upload is ' + progress + '% done');
+              file.progress = progress
               // uploadTask.cancel()
               switch (snapshot.state) {
                 case firebase.storage.TaskState.PAUSED: // or 'paused'
@@ -437,7 +357,7 @@ export default {
 
                 case 'storage/canceled':
                   // User canceled the upload
-                  filesRef.child(key).remove()
+
                   console.log('Upload is canceled')
                   break;
 
@@ -445,8 +365,8 @@ export default {
                   // Unknown error occurred, inspect error.serverResponse
                   break;
               }
+              filesRef.child(key).remove()
               file.active = false
-              file.error = 'error'
               file.success = false
           },
           function() {
@@ -458,11 +378,12 @@ export default {
               // this.$refs.upload.update(file, {success: true, active: false})
               file.success = true
               file.active = false
+              file.error =''
             })
             .catch((error) => {
               // this.$refs.upload.update(file, {error: 'error', active: false})
               file.active = false
-              file.error = 'error'
+              file.error = 'unknown error'
               file.success = false
               console.log('error')
             })
@@ -471,13 +392,6 @@ export default {
 
       })
 
-    },
-    cancelUploadFileToFirebase(file){
-      // $refs.upload.update(file, {error: 'cancel'}
-      file.error = 'cancel'
-      // var uploadTask = app.storage().ref('files/'+file.name).put(file.file)
-      // uploadTask.cancel();
-      // file.active = false
     },
     inputFilter(newFile, oldFile, prevent) {
       if (newFile && !oldFile) {
