@@ -183,7 +183,7 @@
     border-bottom: 1px solid #e9ecef;
   }
   .example-full .edit-image{
-    max-height: 380px;
+    max-height: 320px;
   }
   .example-full .edit-image img {
     max-width: 100%;
