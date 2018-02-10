@@ -7,12 +7,12 @@
 
 <script>
 import Header from './components/Header'
-import Full from './components/Full'
+import Upload from './components/Upload'
 
 export default {
   name: 'App',
   components: {
-    Header, Full
+    Header, Upload
   }
 }
 </script>

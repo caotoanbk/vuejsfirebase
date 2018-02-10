@@ -1,7 +1,7 @@
 import List from './components/List'
-import Full from './components/Full'
+import Upload from './components/Upload'
 
 export default [
   { path: '/', component: List},
-  { path: '/upload', component: Full}
+  { path: '/upload', component: Upload}
 ]
