@@ -148,6 +148,7 @@
 <style scoped>
   table th, table td{
     text-align: left;
+    vertical-align: middle;
   }
   .example-full .btn-group .dropdown-menu {
     display: block;
